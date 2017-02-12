@@ -10,6 +10,9 @@ typedef enum { SDB_DEFAULT, SDB_FILENO } sdb_engine;
 typedef struct sdb_dbo_s sdb_dbo;
 
 extern signed int enomem_flag;
+extern char *your_own_buffer;
+extern size_t your_own_buffer_size;
+extern ssize_t read_size_hook;
 
 sdb_dbo *sdb_open(sdb_engine engine, void *params);
 // Uses existing database or creates new one.
@@ -18,9 +21,13 @@ sdb_dbo *sdb_open(sdb_engine engine, void *params);
 //     SDB_FILENO: you can pass string as full or relative directory path for file DB storage. If you pass NULL, default
 //                 "sdb_storage" directory will be used.
 
-void sdb_configure(void *(*y_malloc)(size_t size), void (*y_free)(void *ptr), void *(*y_realloc)(void *ptr, size_t size));
-// Pass your own malloc(), free(), realloc() functions if you haven't them on your own system, or you want to use
-// different kind of memory management. It's not necessary to call this function.
+void sdb_configure(void *(*y_malloc)(size_t size), void *(*y_calloc)(size_t nmemb, size_t size),
+                   void (*y_free)(void *ptr), void *(*y_realloc)(void *ptr, size_t size));
+// Pass your own malloc(), calloc(), free(), realloc() functions if you haven't them on your own system, or
+// if you want to use different kind of memory management. It's not necessary to call this function.
+
+void sdb_tune(void *your_buffer, size_t your_buffer_size);
+// Pass your own buffer. Useful if 65535 maximum value size for your SELECT's aren't enough.
 
 bool sdb_insert(sdb_dbo *db, const char *key, const char *value);
 // Add new record. Returns false if record with such key is already exist, or we haven't enough memory.

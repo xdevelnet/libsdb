@@ -5,8 +5,17 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <errno.h>
+#include <sys/stat.h>
 
-inline bool prepare_path(const char *dir, const char *file, char *buffer) {
+//#define LIBSDB_DEBUG
+
+#ifdef LIBSDB_DEBUG
+	#include <stdio.h>
+#endif
+
+char st_buffer[LIBSDB_MAXVALUE];
+
+inline static bool prepare_path(const char *dir, const char *file, char *buffer) {
 	size_t dir_len = strlen(dir);
 	size_t file_len = strlen(file);
 
@@ -15,7 +24,7 @@ inline bool prepare_path(const char *dir, const char *file, char *buffer) {
 	char *fly = memcpy(buffer, dir, dir_len) + dir_len;
 	*fly = '/';
 	fly++;
-	memcpy(fly, file, file_len);
+	memcpy(fly, file, file_len + 1);
 
 	return true;
 }
@@ -24,7 +33,16 @@ bool sdb_insert_fileno(sdb_dbo *db, const char *key, const char *value) {
 	char path_buffer[PATH_MAX] = "";
 	prepare_path(db->dataset, key, path_buffer);
 
-	int fd = open(path_buffer, O_WRONLY);
+#ifdef LIBSDB_DEBUG
+	fprintf(stderr, "Requested INSERT to path: %s key: %s value: %s\n", path_buffer, key, value);
+#endif
+
+	int fd = open(path_buffer, O_WRONLY | O_CREAT | O_EXCL, 0666);
+
+#ifdef LIBSDB_DEBUG
+	fprintf(stderr, "Opening file. fd: %d errno: %d\n", fd, errno);
+#endif
+
 	if (fd < 0) {
 		if (errno == ENOMEM) enomem_flag = 1;
 		return false;
@@ -32,18 +50,71 @@ bool sdb_insert_fileno(sdb_dbo *db, const char *key, const char *value) {
 	errno = 0;
 
 	size_t value_length = strlen(value);
-	if (write(fd, value, value_length) < 0) {
+	ssize_t got = write(fd, value, value_length);
+
+#ifdef LIBSDB_DEBUG
+	fprintf(stderr, "Writed contents to file. requested: %zu got: %zd\n", value_length, got);
+#endif
+
+	if (got < 0) {
+		if (errno == ENOMEM or errno == EFBIG or errno == ENOSPC) enomem_flag = 1;
 		close(fd);
 		return false;
 	}
-	if (errno == ENOMEM or errno == EFBIG or errno == ENOSPC) enomem_flag = 1;
+
+	// You may wondering why "not enough space" checking is so shitty.
+	// That's because in practice filesystem may write less amount of bytes then requested without setting errno. Whoa!
+	//
+	// Wanna make a test?
+	// Create small ext2 filesystem. Let's use 1MB size. Now create a single file and try to write 1.5MB data.
+	// write() will return something around 1MB. errno is still 0! What?!
+	// Ok, now more - TRY TO CALL write() WITH SUPER SMALL AMOUNT OF BYTES: ssize_t got = write(fd, "aaa", 3);
+	// And that call will return... 3. Well fucking done, Linux! Well fucking done.
+
+	// TODO: research O_DIRECT
+
+	if (errno == ENOMEM or errno == EFBIG or errno == ENOSPC or (size_t) got < value_length) enomem_flag = 1;
 	close(fd);
 
 	return true;
 }
 
 bool sdb_update_fileno(sdb_dbo *db, const char *key, const char *value) {
-	return false;
+	char path_buffer[PATH_MAX] = "";
+	prepare_path(db->dataset, key, path_buffer);
+
+#ifdef LIBSDB_DEBUG
+	fprintf(stderr, "Requested UPDATE to path: %s key: %s value: %s\n", path_buffer, key, value);
+#endif
+
+	int fd = open(path_buffer, O_WRONLY | O_TRUNC);
+
+#ifdef LIBSDB_DEBUG
+	fprintf(stderr, "Opening and truncating file. fd: %d errno: %d\n", fd, errno);
+#endif
+
+	if (fd < 0) {
+		if (errno == ENOMEM) enomem_flag = 1;
+		return false;
+	}
+	errno = 0;
+
+	size_t value_length = strlen(value);
+	ssize_t got = write(fd, value, value_length);
+
+#ifdef LIBSDB_DEBUG
+	fprintf(stderr, "Writed contents to file. requested: %zu got: %zd\n", value_length, got);
+#endif
+
+	if (got < 0) {
+		if (errno == ENOMEM or errno == EFBIG or errno == ENOSPC) enomem_flag = 1;
+		close(fd);
+		return false;
+	}
+	if (errno == ENOMEM or errno == EFBIG or errno == ENOSPC or (size_t) got < value_length) enomem_flag = 1;
+	close(fd);
+
+	return true;
 }
 
 const char *sdb_select_fileno(sdb_dbo *db, const char *key) {
@@ -56,9 +127,19 @@ const char *sdb_select_fileno(sdb_dbo *db, const char *key) {
 		return NULL;
 	}
 	errno = 0;
-	static char buffer[LIBSDB_MAXVALUE];
 
-	ssize_t got = read(fd, buffer, LIBSDB_MAXVALUE - 1);
+	char *readbuffer;
+	size_t readsize;
+
+	if (your_own_buffer != NULL and your_own_buffer_size > 0) {
+		readbuffer = your_own_buffer;
+		readsize = your_own_buffer_size;
+	} else {
+		readbuffer = st_buffer;
+		readsize = LIBSDB_MAXVALUE - 1;
+	}
+	ssize_t got = read(fd, readbuffer, readsize);
+
 	if (got < 0) {
 		close(fd);
 		return false;
@@ -66,23 +147,34 @@ const char *sdb_select_fileno(sdb_dbo *db, const char *key) {
 	if (errno == ENOMEM or errno == EFBIG or errno == ENOSPC) enomem_flag = 1;
 	close(fd);
 
-	buffer[got] = '\0';
+	readbuffer[got] = '\0';
+	read_size_hook = got;
 
-	return buffer;
+	return st_buffer;
 }
 
 bool sdb_delete_fileno(sdb_dbo *db, const char *key) {
-	return false;
+	char path_buffer[PATH_MAX] = "";
+	prepare_path(db->dataset, key, path_buffer);
+
+	if (unlink(path_buffer) < 0) return false;
+	return true;
 }
 
 ssize_t sdb_exist_fileno(sdb_dbo *db, const char *key) {
-	return false;
+	char path_buffer[PATH_MAX] = "";
+	prepare_path(db->dataset, key, path_buffer);
+
+	if (access(path_buffer, R_OK | W_OK) < 0) return false;
+	struct stat st;
+	if (stat(db->dataset, &st) < 0) return false;
+	return st.st_size;
 }
 
 sdb_dbo *sdb_open_fileno(sdb_engine engine, void *params) {
 	if (engine != SDB_FILENO) return false;
 
-	sdb_dbo *source = calloc(sizeof(sdb_dbo), sizeof(char));
+	sdb_dbo *source = my_calloc(sizeof(sdb_dbo), sizeof(char));
 	if (source == NULL) return NULL;
 
 	if (params != NULL) source->dataset = params; else

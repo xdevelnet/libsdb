@@ -28,9 +28,11 @@ struct sdb_dbo_s {
 	sdb_defun defun;
 };
 
-signed int enomem_flag = 0;
+signed int enomem_flag = 0; // check this flag if library function fails because of
+ssize_t read_size_hook = 0; // check how much bytes has been transferred after library call
 
-void *(*my_malloc)(size_t size) = malloc;
+void *(*my_malloc)(size_t size) = malloc; // "I'll be my own successor!" (c)
+void *(*my_calloc)(size_t nmemb, size_t size) = calloc;
 void (*my_free)(void *ptr) = free;
 void *(*my_realloc)(void *ptr, size_t size) = realloc;
 
@@ -44,9 +46,20 @@ sdb_dbo *sdb_open(sdb_engine engine, void *params) {
 	}
 }
 
-void sdb_configure(void *(*y_malloc)(size_t size), void (*y_free)(void *ptr), void *(*y_realloc)(void *ptr, size_t size)) {
-	if (y_malloc != NULL and y_free != NULL and y_realloc != NULL) {
-		my_malloc = y_malloc, my_free = y_free, my_realloc = y_realloc; // Did you get it? :D
+void sdb_configure(void *(*y_malloc)(size_t size), void *(*y_calloc)(size_t nmemb, size_t size),
+                   void (*y_free)(void *ptr), void *(*y_realloc)(void *ptr, size_t size)) {
+	if (y_malloc != NULL and y_calloc != NULL and y_free != NULL and y_realloc != NULL) {
+		my_malloc = y_malloc, my_calloc = y_calloc, my_free = y_free, my_realloc = y_realloc; // Did you get it? :D
+	}
+}
+
+char *your_own_buffer = NULL;
+size_t your_own_buffer_size = 0;
+
+void sdb_tune(void *your_buffer, size_t your_buffer_size) {
+	if (your_buffer != NULL and your_own_buffer_size > 0) {
+		your_own_buffer = your_buffer;
+		your_own_buffer_size = your_buffer_size;
 	}
 }
 
