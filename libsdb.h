@@ -1,3 +1,29 @@
+/*
+ * Copyright (c) 2017, Xdevelnet (xdevelnet at xdevelnet dot org)
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+
+ * Redistributions of source code must retain the above copyright notice, this
+ * list of conditions and the following disclaimer.
+
+ * Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution.
+
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #ifndef LIBSDB_H
 #define LIBSDB_H
 
@@ -5,7 +31,7 @@
 
 #define LIBSDB_MAXVALUE 65535
 
-typedef enum { SDB_DEFAULT, SDB_FILENO } sdb_engine;
+typedef enum { SDB_DEFAULT, SDB_FILENO, SDB_MYSQL } sdb_engine;
 
 typedef struct sdb_dbo_s sdb_dbo;
 
@@ -28,6 +54,7 @@ void sdb_configure(void *(*y_malloc)(size_t size), void *(*y_calloc)(size_t nmem
 
 void sdb_tune(void *your_buffer, size_t your_buffer_size);
 // Pass your own buffer. Useful if 65535 maximum value size for your SELECT's aren't enough.
+// It's not necessary to call this function.
 
 bool sdb_insert(sdb_dbo *db, const char *key, const char *value);
 // Add new record. Returns false if record with such key is already exist, or we haven't enough memory.

@@ -3,11 +3,12 @@ Small key-value database engine library for embedded or lowmemory devices
 
 |  ITEM |   STATUS  |
 |-------|-----------|
-|Library|In development|
-|Interface| Done. Small changes may be possible |
-|Documentation| Partially done|
-|Default engine|Not implemented yet|
-|File engine| Prototyping |
+|Library|Done. Only FILE engine is available|
+|Interface| Done, with a low probability to change. |
+|Documentation| Partially done |
+|Default engine|Not implemented.|
+|File engine| Done |
+| Tests | Only integration tests for file engine done |
 
 
 # API
@@ -26,3 +27,4 @@ Access&utility API:
 |Method|Explanation|Prototype|
 |------|---------|-----------|
 |      |open or create database|sdb_dbo *sdb_open(sdb_engine engine, void *params);|
+|      |use developer's own buffer instead of library's static buffer|void sdb_tune(void *your_buffer, size_t your_buffer_size);|
