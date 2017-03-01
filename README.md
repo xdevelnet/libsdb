@@ -3,12 +3,12 @@ Small key-value database library for embedded or lowmemory devices
 
 |  OBJECT |   STATUS  |
 |---------|-----------|
-|Library|Done. Only FILE engine is available|
+|Library|Done. Only FILE engine is available.|
 |Interface| Done. |
-|Documentation| Partially done |
+|Documentation| Partially done. |
 |Default engine|Not implemented.|
 |File engine| Done. |
-| Tests | Only integration tests for file engine done |
+| Tests | Only integration tests for file engine. |
 
 
 # API
