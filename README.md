@@ -1,13 +1,13 @@
 # libsdb
 Small key-value database engine library for embedded or lowmemory devices
 
-|  ITEM |   STATUS  |
-|-------|-----------|
+|  OBJECT |   STATUS  |
+|---------|-----------|
 |Library|Done. Only FILE engine is available|
-|Interface| Done, with a low probability to change. |
+|Interface| Done. |
 |Documentation| Partially done |
 |Default engine|Not implemented.|
-|File engine| Done |
+|File engine| Done. |
 | Tests | Only integration tests for file engine done |
 
 
@@ -27,4 +27,6 @@ Access&utility API:
 |Method|Explanation|Prototype|
 |------|---------|-----------|
 |      |open or create database|sdb_dbo *sdb_open(sdb_engine engine, void *params);|
-|      |use developer's own buffer instead of library's static buffer|void sdb_tune(void *your_buffer, size_t your_buffer_size);|
+|      |close database|void sdb_close(sdb_dbo *db);|
+|      |set buffer size for next database from sdb_open() call|void sdb_tune(void *your_buffer, size_t your_buffer_size);|
+|      |pass different your own memory management functions|void sdb_configure(void *(*y_malloc)(size_t size), void *(*y_calloc)(size_t nmemb, size_t size), void (*y_free)(void *ptr), void *(*y_realloc)(void *ptr, size_t size));|
