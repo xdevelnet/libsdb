@@ -56,6 +56,7 @@ struct sdb_dbo_s {
 
 signed int enomem_flag = 0; // check this flag if library function fails because of
 ssize_t read_size_hook = 0; // check how much bytes has been transferred after library call
+size_t omit_buffer_size = 0;
 
 void *(*my_malloc)(size_t size) = malloc; // "I'll be my own successor!" (c)
 void *(*my_calloc)(size_t nmemb, size_t size) = calloc;
@@ -80,14 +81,8 @@ void sdb_configure(void *(*y_malloc)(size_t size), void *(*y_calloc)(size_t nmem
 	}
 }
 
-char *your_own_buffer = NULL;
-size_t your_own_buffer_size = 0;
-
-void sdb_tune(void *your_buffer, size_t your_buffer_size) {
-	if (your_buffer != NULL and your_own_buffer_size > 0) {
-		your_own_buffer = your_buffer;
-		your_own_buffer_size = your_buffer_size;
-	}
+void sdb_tune(size_t your_buffer_size) {
+	if (your_buffer_size > 0) omit_buffer_size = your_buffer_size;
 }
 
 bool sdb_insert(sdb_dbo *db, const char *key, const char *value) {
@@ -108,4 +103,14 @@ bool sdb_delete(sdb_dbo *db, const char *key) {
 
 ssize_t sdb_exist(sdb_dbo *db, const char *key) {
 	return db->defun.p_sdb_exist(db, key);
+}
+
+void sdb_close(sdb_dbo *db) {
+	if (db == NULL) return;
+	switch (db->engine) {
+		case SDB_DEFAULT: return;
+		case SDB_FILENO: return sdb_close_fileno(db);
+		case SDB_MYSQL: return;
+		default: return;
+	}
 }

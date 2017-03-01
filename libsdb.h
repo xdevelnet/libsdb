@@ -36,8 +36,6 @@ typedef enum { SDB_DEFAULT, SDB_FILENO, SDB_MYSQL } sdb_engine;
 typedef struct sdb_dbo_s sdb_dbo;
 
 extern signed int enomem_flag;
-extern char *your_own_buffer;
-extern size_t your_own_buffer_size;
 extern ssize_t read_size_hook;
 
 sdb_dbo *sdb_open(sdb_engine engine, void *params);
@@ -52,9 +50,10 @@ void sdb_configure(void *(*y_malloc)(size_t size), void *(*y_calloc)(size_t nmem
 // Pass your own malloc(), calloc(), free(), realloc() functions if you haven't them on your own system, or
 // if you want to use different kind of memory management. It's not necessary to call this function.
 
-void sdb_tune(void *your_buffer, size_t your_buffer_size);
-// Pass your own buffer. Useful if 65535 maximum value size for your SELECT's aren't enough.
-// It's not necessary to call this function.
+void sdb_tune(size_t your_buffer_size);
+// Omit default database's buffer size for next sdb_open() call. Useful if LIBSDB_MAXVALUE maximum value size for your
+// SELECT's aren't enough.
+// It's not necessary to call this function. If you also need to use sdb_configure(), please, use sdb_configure() first.
 
 bool sdb_insert(sdb_dbo *db, const char *key, const char *value);
 // Add new record. Returns false if record with such key is already exist, or we haven't enough memory.
@@ -70,5 +69,8 @@ bool sdb_delete(sdb_dbo *db, const char *key);
 
 ssize_t sdb_exist(sdb_dbo *db, const char *key);
 // Check if record exist. Returns -1 if record with such key is not exist, otherwise returns length of value.
+
+void sdb_close(sdb_dbo *db);
+// Finish work with database.
 
 #endif

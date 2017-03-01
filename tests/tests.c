@@ -49,8 +49,11 @@ int main() {
 		eprintf("Test preparations was completely failed");
 		return EXIT_FAILURE;
 	}
-	chdir("..");
-	
+	if (chdir("..") < 0) {
+		perror(NULL);
+		return EXIT_FAILURE;
+	}
+	sdb_tune(65536 * 7);
 	sdb_dbo *db = sdb_open(SDB_FILENO, WORKING_DIR);
 	if (db == NULL) {
 		eprintf("Open failed.\n");
@@ -149,6 +152,8 @@ int main() {
 		return EXIT_FAILURE;
 	}
 	eprintf("Exist was successful\n");
+	free(buffer);
+	sdb_close(db);
 	
 	return EXIT_SUCCESS;
 }

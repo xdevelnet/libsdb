@@ -1,4 +1,4 @@
 all:
-	cp ../libsdb.so ./libsdb.so ; cc tests.c --std=c99 -o tests -Wall -Werror -l:libsdb.so -Wl,-rpath '-Wl,$$ORIGIN'
+	cp ../libsdb.so ./libsdb.so ; cc tests.c --std=c99 -o tests -O2 -Wall -Werror -l:libsdb.so -Wl,-rpath '-Wl,$$ORIGIN'
 clean:
-	rm select; rm libsdb.so
+	rm tests libsdb.so; rm -Rf test_data/*

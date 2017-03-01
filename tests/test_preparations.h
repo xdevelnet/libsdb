@@ -67,7 +67,7 @@ bool test_prep() {
 		close(trash_source_fd);
 		return false;
 	}
-	write(fd, example_string, strizeof(example_string));
+	if (write(fd, example_string, strizeof(example_string)) < 0) return false;
 	close(fd);
 
 	return true;

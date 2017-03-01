@@ -32,14 +32,15 @@
 #include <limits.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <stdio.h>
+
+#define DEFAULT_STORAGE_DIRECTORY "sdb_storage"
 
 //#define LIBSDB_DEBUG
 
 #ifdef LIBSDB_DEBUG
 	#include <stdio.h>
 #endif
-
-char st_buffer[LIBSDB_MAXVALUE];
 
 inline static bool prepare_path(const char *dir, const char *file, char *buffer) {
 	size_t dir_len = strlen(dir);
@@ -154,17 +155,7 @@ const char *sdb_select_fileno(sdb_dbo *db, const char *key) {
 	}
 	errno = 0;
 
-	char *readbuffer;
-	size_t readsize;
-
-	if (your_own_buffer != NULL and your_own_buffer_size > 0) {
-		readbuffer = your_own_buffer;
-		readsize = your_own_buffer_size;
-	} else {
-		readbuffer = st_buffer;
-		readsize = LIBSDB_MAXVALUE - 1;
-	}
-	ssize_t got = read(fd, readbuffer, readsize);
+	ssize_t got = read(fd, db->data, db->dataset_total);
 
 	if (got < 0) {
 		close(fd);
@@ -173,10 +164,10 @@ const char *sdb_select_fileno(sdb_dbo *db, const char *key) {
 	if (errno == ENOMEM or errno == EFBIG or errno == ENOSPC) enomem_flag = 1;
 	close(fd);
 
-	readbuffer[got] = '\0';
+	((char *)&db->data)[db->dataset_total] = '\0'; // WRECKED!
 	read_size_hook = got;
 
-	return st_buffer;
+	return db->data;
 }
 
 bool sdb_delete_fileno(sdb_dbo *db, const char *key) {
@@ -199,12 +190,20 @@ ssize_t sdb_exist_fileno(sdb_dbo *db, const char *key) {
 
 sdb_dbo *sdb_open_fileno(sdb_engine engine, void *params) {
 	if (engine != SDB_FILENO) return false;
-
-	sdb_dbo *source = my_calloc(sizeof(sdb_dbo), sizeof(char));
+	size_t mem4str = 0;
+	size_t storagesize;
+	if (omit_buffer_size > 0) storagesize = omit_buffer_size; else storagesize = LIBSDB_MAXVALUE;
+	omit_buffer_size = 0;
+	if (params != NULL) mem4str = strlen(params) + 1;
+	// I could use strdup() for "params" and don't give a fuck, but I prefer to use my own savvy.
+	sdb_dbo *source = my_calloc(sizeof(sdb_dbo) + mem4str + storagesize, sizeof(char));
 	if (source == NULL) return NULL;
+	if (params == NULL) source->dataset = DEFAULT_STORAGE_DIRECTORY;
+	else source->dataset = memcpy(sizeof(sdb_dbo) + (char *) source, params, mem4str);
+	// Write me an email if you need explanation about that line above. No, actually don't do that.
 
-	if (params != NULL) source->dataset = params; else
-		source->dataset = "sdb_storage";
+	source->data = mem4str + sizeof(sdb_dbo) + (char *) source;
+	source->dataset_total = storagesize;
 
 	if (access(source->dataset, W_OK) == 0) {
 		source->defun.p_sdb_insert = sdb_insert_fileno;
@@ -212,11 +211,17 @@ sdb_dbo *sdb_open_fileno(sdb_engine engine, void *params) {
 		source->defun.p_sdb_select = sdb_select_fileno;
 		source->defun.p_sdb_delete = sdb_delete_fileno;
 		source->defun.p_sdb_exist = sdb_exist_fileno;
+		source->engine = engine;
 		return source;
 	} else {
 		my_free(source);
 		return NULL;
 	}
+}
+
+void sdb_close_fileno(sdb_dbo *db) {
+	// Don't want to check if db == NULL. I suppose that's already done before.
+	return my_free(db);
 }
 
 #endif //LIBSDB_LIBSDB_FILENO_H
